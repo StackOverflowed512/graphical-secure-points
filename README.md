@@ -1,69 +1,117 @@
-# Welcome to your Lovable project
 
-## Project info
+# Graphical Password Authentication System
 
-**URL**: https://lovable.dev/projects/5fa4a2cd-24e1-4a53-ae3f-2ad49e7bd75d
+A secure authentication system using cued click points instead of traditional text-based passwords.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- User registration and login using graphical passwords
+- Sequential image presentation for authentication
+- Tolerance zones around click points
+- Visual feedback during authentication
+- Secure storage of authentication data
 
-**Use Lovable**
+## Project Structure
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/5fa4a2cd-24e1-4a53-ae3f-2ad49e7bd75d) and start prompting.
+The project is divided into two main parts:
 
-Changes made via Lovable will be committed automatically to this repo.
+### Frontend (React + Tailwind CSS)
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+src/
+├── components/       # Reusable UI components
+│   ├── Auth/         # Authentication-related components
+│   └── ui/           # Generic UI components
+├── context/          # React context for state management
+├── pages/            # Page components
+├── types/            # TypeScript type definitions
+└── utils/            # Utility functions
 ```
 
-**Edit a file directly in GitHub**
+### Backend (Node.js + SQL)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+backend/
+├── config/           # Configuration files
+├── controllers/      # Route controllers
+├── database/         # Database schema and migrations
+├── middleware/       # Express middleware
+├── routes/           # API routes
+└── utils/            # Utility functions
+```
 
-**Use GitHub Codespaces**
+## Setup Instructions
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Frontend
 
-## What technologies are used for this project?
+1. Clone the repository
+2. Navigate to the project root
+3. Install dependencies:
+   ```
+   npm install
+   ```
+4. Start the development server:
+   ```
+   npm run dev
+   ```
+5. Open [http://localhost:8080](http://localhost:8080) in your browser
 
-This project is built with .
+### Backend
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1. Navigate to the backend directory:
+   ```
+   cd backend
+   ```
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Create a `.env` file based on `.env.example`:
+   ```
+   cp .env.example .env
+   ```
+4. Edit the `.env` file with your database credentials
+5. Set up the database:
+   - Create a PostgreSQL database
+   - Run the SQL scripts in `database/schema.sql`
+6. Start the server:
+   ```
+   npm run dev
+   ```
 
-## How can I deploy this project?
+## How It Works
 
-Simply open [Lovable](https://lovable.dev/projects/5fa4a2cd-24e1-4a53-ae3f-2ad49e7bd75d) and click on Share -> Publish.
+### Registration
 
-## I want to use a custom domain - is that possible?
+1. User enters email and username
+2. User selects click points on a sequence of images
+3. The coordinates and image IDs are stored securely
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+### Login
+
+1. User enters email
+2. User is presented with the same sequence of images
+3. User must click close to the original points (within a tolerance zone)
+4. If all points match, the user is authenticated
+
+## Security Considerations
+
+- Click points are stored with reference to image IDs
+- Tolerance zones allow for slight inaccuracies in clicking
+- Backend validates coordinates with appropriate tolerance
+- HTTP-only cookies for JWT storage
+- No sensitive information transmitted in responses
+
+## Technologies Used
+
+- Frontend:
+  - React
+  - TypeScript
+  - Tailwind CSS
+  - Framer Motion for animations
+
+- Backend:
+  - Node.js
+  - Express
+  - PostgreSQL
+  - JSON Web Tokens (JWT) for authentication
