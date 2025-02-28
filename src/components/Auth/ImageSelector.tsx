@@ -20,6 +20,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [clickPoints, setClickPoints] = useState<ClickPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [lastClick, setLastClick] = useState<{ x: number; y: number } | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -29,15 +30,24 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
   // Handle image loading
   useEffect(() => {
     setIsLoading(true);
+    setImageError(null);
   }, [currentImageIndex]);
 
   const handleImageLoad = () => {
+    console.log(`Image ${currentImageIndex + 1} loaded successfully`);
     setIsLoading(false);
+    setImageError(null);
+  };
+
+  const handleImageError = () => {
+    console.error(`Failed to load image ${currentImageIndex + 1}: ${currentImage.url}`);
+    setIsLoading(false);
+    setImageError(`Failed to load image ${currentImageIndex + 1}. Please try again or contact support.`);
   };
 
   // Handle image click
   const handleImageClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!imageRef.current || isLoading) return;
+    if (!imageRef.current || isLoading || imageError) return;
 
     // Get coordinates relative to the image
     const { x, y } = getRelativeCoordinates(event, imageRef.current);
@@ -94,13 +104,39 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
       <div 
         className={cn(
           "image-container relative w-full aspect-[4/3] bg-muted", 
-          showFeedback && "highlighted"
+          showFeedback && "highlighted",
+          imageError && "border-destructive border-2"
         )}
         onClick={handleImageClick}
       >
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader />
+          </div>
+        )}
+
+        {imageError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+            <p className="text-destructive">{imageError}</p>
+            <Button 
+              className="mt-2" 
+              variant="outline" 
+              onClick={() => {
+                setIsLoading(true);
+                setImageError(null);
+                // Force reload the image
+                const img = imageRef.current;
+                if (img) {
+                  const src = img.src;
+                  img.src = "";
+                  setTimeout(() => {
+                    img.src = src + "?t=" + new Date().getTime();
+                  }, 100);
+                }
+              }}
+            >
+              Retry
+            </Button>
           </div>
         )}
         
@@ -110,9 +146,10 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
           alt={currentImage.alt}
           className={cn(
             "object-cover w-full h-full",
-            isLoading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
+            (isLoading || imageError) ? "opacity-0" : "opacity-100 transition-opacity duration-300"
           )}
           onLoad={handleImageLoad}
+          onError={handleImageError}
         />
         
         {showFeedback && lastClick && (
@@ -168,7 +205,8 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
             currentImageIndex === images.length - 1 || 
             clickPoints.length <= currentImageIndex ||
             showFeedback ||
-            isLoading
+            isLoading ||
+            imageError !== null
           }
         >
           Next
