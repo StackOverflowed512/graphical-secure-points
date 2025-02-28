@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import PasswordDashboard from "@/components/PasswordManager/PasswordDashboard";
 
 const Index = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -34,36 +35,30 @@ const Index = () => {
         </nav>
       </header>
 
-      <main className="flex-1 container mx-auto flex flex-col items-center justify-center p-6 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="max-w-3xl"
-        >
-          <h1 className="text-4xl font-bold tracking-tight mb-4">
-            Secure authentication with Graphical Passwords
-          </h1>
-          <p className="text-xl text-muted-foreground mb-8">
-            A more intuitive and secure way to protect your account using visual memory instead of text-based passwords.
-          </p>
+      <main className="flex-1 container mx-auto flex flex-col p-6">
+        {isAuthenticated ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="w-full"
+          >
+            <PasswordDashboard />
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="max-w-3xl mx-auto text-center"
+          >
+            <h1 className="text-4xl font-bold tracking-tight mb-4">
+              Secure authentication with Graphical Passwords
+            </h1>
+            <p className="text-xl text-muted-foreground mb-8">
+              A more intuitive and secure way to protect your account using visual memory instead of text-based passwords.
+            </p>
 
-          {isAuthenticated ? (
-            <div className="bg-card rounded-lg p-8 shadow-lg mb-8">
-              <h2 className="text-2xl font-bold mb-4">Welcome to your Dashboard</h2>
-              <p className="text-muted-foreground mb-6">
-                You've successfully authenticated using Graphical Password Authentication.
-              </p>
-              <div className="max-w-md mx-auto bg-muted p-4 rounded-md text-left">
-                <h3 className="font-medium mb-2">Your Account Details</h3>
-                <ul className="space-y-2">
-                  <li><span className="font-medium">Username:</span> {user?.username}</li>
-                  <li><span className="font-medium">Email:</span> {user?.email}</li>
-                  <li><span className="font-medium">ID:</span> {user?.id}</li>
-                </ul>
-              </div>
-            </div>
-          ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -99,9 +94,7 @@ const Index = () => {
                 </p>
               </motion.div>
             </div>
-          )}
 
-          {!isAuthenticated && (
             <div className="flex gap-4 justify-center">
               <Button size="lg" asChild>
                 <Link to="/register">Get Started</Link>
@@ -110,8 +103,8 @@ const Index = () => {
                 <Link to="/login">Sign In</Link>
               </Button>
             </div>
-          )}
-        </motion.div>
+          </motion.div>
+        )}
       </main>
 
       <footer className="container mx-auto p-6 border-t border-border">
