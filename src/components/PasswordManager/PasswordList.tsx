@@ -7,6 +7,7 @@ import { Eye, EyeOff, Copy, Pencil, Trash2, Lock, Search, Plus } from "lucide-re
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 
 interface PasswordListProps {
   passwords: Password[];
@@ -37,7 +38,10 @@ const PasswordList: React.FC<PasswordListProps> = ({
   // Copy password to clipboard
   const copyToClipboard = (text: string, type: "password" | "username") => {
     navigator.clipboard.writeText(text);
-    // Toast notification handled in the wrapper component
+    toast({
+      title: `${type === "password" ? "Password" : "Username"} copied`,
+      description: `The ${type} has been copied to your clipboard.`,
+    });
   };
 
   // Filter passwords based on search term
