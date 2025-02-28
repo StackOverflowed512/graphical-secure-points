@@ -32,7 +32,9 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setError(null);
     
     try {
+      console.log("Fetching passwords for user:", user.id);
       const userPasswords = await getUserPasswords(user.id);
+      console.log("Passwords fetched:", userPasswords);
       setPasswords(userPasswords);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to fetch passwords";

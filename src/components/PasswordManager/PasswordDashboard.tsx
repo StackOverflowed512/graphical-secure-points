@@ -22,10 +22,20 @@ const PasswordDashboard: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedPassword, setSelectedPassword] = useState<Password | null>(null);
   const [passwordToDelete, setPasswordToDelete] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Load passwords when component mounts
   useEffect(() => {
-    getPasswords();
+    const loadPasswords = async () => {
+      setInitialLoading(true);
+      await getPasswords();
+      setInitialLoading(false);
+    };
+    
+    loadPasswords();
+    
+    // Debug
+    console.log("PasswordDashboard mounted, loading passwords");
   }, [getPasswords]);
 
   const handleAddPassword = () => {
@@ -76,15 +86,6 @@ const PasswordDashboard: React.FC = () => {
     }
   };
 
-  // Clipboard copy notification
-  const handleCopyToClipboard = (text: string, type: "password" | "username") => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: `${type === "password" ? "Password" : "Username"} copied`,
-      description: `The ${type} has been copied to your clipboard.`,
-    });
-  };
-
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="mb-6">
@@ -96,7 +97,7 @@ const PasswordDashboard: React.FC = () => {
 
       <PasswordList
         passwords={passwords}
-        loading={loading}
+        loading={initialLoading}
         onEdit={handleEditPassword}
         onDelete={handleDeletePassword}
         onAdd={handleAddPassword}
