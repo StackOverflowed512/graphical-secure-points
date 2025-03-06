@@ -1,0 +1,260 @@
+
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+    Eye,
+    EyeOff,
+    Copy,
+    Pencil,
+    Trash2,
+    Lock,
+    Search,
+    Plus,
+    ExternalLink
+} from "lucide-react";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+import { toast } from "@/components/ui/use-toast";
+
+const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
+    const [searchTerm, setSearchTerm] = useState("");
+    const [visiblePasswords, setVisiblePasswords] = useState({});
+
+    // Toggle password visibility
+    const togglePasswordVisibility = (id) => {
+        setVisiblePasswords((prev) => ({
+            ...prev,
+            [id]: !prev[id],
+        }));
+    };
+
+    // Copy password to clipboard
+    const copyToClipboard = (text, type) => {
+        navigator.clipboard.writeText(text);
+        toast({
+            title: `${type === "password" ? "Password" : "Username"} copied`,
+            description: `The ${type} has been copied to your clipboard.`,
+        });
+    };
+
+    // Autofill password in a website
+    const autofillPassword = (password) => {
+        // This function would typically communicate with a browser extension
+        // For demonstration, we'll just show a toast notification
+        toast({
+            title: "Autofill requested",
+            description: `Password for ${password.title} would be autofilled if browser extension was installed.`,
+        });
+        
+        // In a real implementation, you might send a message to a browser extension
+        if (window.passwordManagerExtension) {
+            window.passwordManagerExtension.autofill({
+                url: password.url,
+                username: password.username,
+                password: password.password
+            });
+        }
+    };
+
+    // Filter passwords based on search term
+    const filteredPasswords = passwords.filter(
+        (password) =>
+            password.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            password.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (password.url && password.url.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    return (
+        <div className="space-y-4 w-full">
+            <div className="flex justify-between items-center">
+                <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search passwords..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-8"
+                    />
+                </div>
+                <Button onClick={onAdd} className="ml-2">
+                    <Plus className="mr-2 h-4 w-4" /> Add New
+                </Button>
+            </div>
+
+            {filteredPasswords.length === 0 ? (
+                <div className="text-center py-8">
+                    <Lock className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+                    <h3 className="mt-2 text-lg font-medium">
+                        No passwords found
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                        {searchTerm
+                            ? "Try a different search term"
+                            : "Add your first password to get started"}
+                    </p>
+                    {!searchTerm && (
+                        <Button
+                            onClick={onAdd}
+                            variant="outline"
+                            className="mt-4"
+                        >
+                            <Plus className="mr-2 h-4 w-4" /> Add Password
+                        </Button>
+                    )}
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {filteredPasswords.map((password) => (
+                        <Card key={password.id} className="w-full">
+                            <CardHeader className="pb-2">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <CardTitle className="text-lg">
+                                            {password.title}
+                                        </CardTitle>
+                                        {password.url && (
+                                            <CardDescription>
+                                                <a
+                                                    href={
+                                                        password.url.startsWith("http")
+                                                            ? password.url
+                                                            : `https://${password.url}`
+                                                    }
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="hover:underline flex items-center gap-1"
+                                                >
+                                                    {password.url}
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            </CardDescription>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-1">
+                                        {password.url && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => autofillPassword(password)}
+                                                className="h-8 text-xs"
+                                                title="Autofill on site"
+                                            >
+                                                Autofill
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => onEdit(password)}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                            <span className="sr-only">
+                                                Edit
+                                            </span>
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => onDelete(password.id)}
+                                            className="h-8 w-8 p-0 text-destructive"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="sr-only">
+                                                Delete
+                                            </span>
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <div className="font-medium text-sm text-muted-foreground">
+                                            Username
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm">
+                                                {password.username}
+                                            </span>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => copyToClipboard(password.username, "username")}
+                                                className="h-6 w-6 p-0"
+                                            >
+                                                <Copy className="h-3 w-3" />
+                                                <span className="sr-only">
+                                                    Copy username
+                                                </span>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <div className="font-medium text-sm text-muted-foreground">
+                                            Password
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-mono">
+                                                {visiblePasswords[password.id]
+                                                    ? password.password
+                                                    : "•".repeat(Math.min(12, password.password.length))}
+                                            </span>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => togglePasswordVisibility(password.id)}
+                                                className="h-6 w-6 p-0"
+                                            >
+                                                {visiblePasswords[password.id] ? (
+                                                    <EyeOff className="h-3 w-3" />
+                                                ) : (
+                                                    <Eye className="h-3 w-3" />
+                                                )}
+                                                <span className="sr-only">
+                                                    {visiblePasswords[password.id] ? "Hide" : "Show"} password
+                                                </span>
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => copyToClipboard(password.password, "password")}
+                                                className="h-6 w-6 p-0"
+                                            >
+                                                <Copy className="h-3 w-3" />
+                                                <span className="sr-only">
+                                                    Copy password
+                                                </span>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                            {password.notes && (
+                                <CardFooter className="pt-0">
+                                    <div className="w-full">
+                                        <div className="font-medium text-sm text-muted-foreground mb-1">
+                                            Notes
+                                        </div>
+                                        <p className="text-sm whitespace-pre-wrap">
+                                            {password.notes}
+                                        </p>
+                                    </div>
+                                </CardFooter>
+                            )}
+                        </Card>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default PasswordList;
