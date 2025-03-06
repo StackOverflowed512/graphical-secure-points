@@ -1,9 +1,8 @@
-
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import PasswordDashboard from "@/components/PasswordManager/PasswordDashboard";
+import PasswordDashboard from "@/components/PasswordManager/PasswordDashboard.jsx";
 
 const Index = () => {
   const { user, isAuthenticated, logout } = useAuth();
