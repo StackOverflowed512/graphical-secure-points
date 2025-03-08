@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,7 +11,8 @@ import {
     Lock,
     Search,
     Plus,
-    ExternalLink
+    ExternalLink,
+    Download
 } from "lucide-react";
 import {
     Card,
@@ -22,10 +23,17 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
+import { isExtensionInstalled } from "@/utils/extensionConnector";
 
 const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [visiblePasswords, setVisiblePasswords] = useState({});
+    const [extensionInstalled, setExtensionInstalled] = useState(false);
+
+    // Check if extension is installed
+    useEffect(() => {
+        setExtensionInstalled(isExtensionInstalled());
+    }, []);
 
     // Toggle password visibility
     const togglePasswordVisibility = (id) => {
@@ -46,19 +54,21 @@ const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
 
     // Autofill password in a website
     const autofillPassword = (password) => {
-        // This function would typically communicate with a browser extension
-        // For demonstration, we'll just show a toast notification
-        toast({
-            title: "Autofill requested",
-            description: `Password for ${password.title} would be autofilled if browser extension was installed.`,
-        });
-        
-        // In a real implementation, you might send a message to a browser extension
-        if (window.passwordManagerExtension) {
-            window.passwordManagerExtension.autofill({
-                url: password.url,
-                username: password.username,
-                password: password.password
+        if (extensionInstalled && window.passwordManagerExtension) {
+            window.passwordManagerExtension.autofill(
+                password.username,
+                password.password
+            );
+            
+            toast({
+                title: "Autofill requested",
+                description: `Credentials for ${password.title} will be filled when you visit the site.`,
+            });
+        } else {
+            toast({
+                title: "Extension not detected",
+                description: "Please install the browser extension to use autofill.",
+                variant: "destructive",
             });
         }
     };
@@ -83,9 +93,16 @@ const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
                         className="pl-8"
                     />
                 </div>
-                <Button onClick={onAdd} className="ml-2">
-                    <Plus className="mr-2 h-4 w-4" /> Add New
-                </Button>
+                <div className="flex gap-2">
+                    {!extensionInstalled && (
+                        <Button variant="outline" onClick={() => window.open(chrome.runtime.getURL('../../index.html'), '_blank')}>
+                            <Download className="mr-2 h-4 w-4" /> Get Extension
+                        </Button>
+                    )}
+                    <Button onClick={onAdd}>
+                        <Plus className="mr-2 h-4 w-4" /> Add New
+                    </Button>
+                </div>
             </div>
 
             {filteredPasswords.length === 0 ? (
@@ -145,6 +162,7 @@ const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
                                                 onClick={() => autofillPassword(password)}
                                                 className="h-8 text-xs"
                                                 title="Autofill on site"
+                                                disabled={!extensionInstalled}
                                             >
                                                 Autofill
                                             </Button>

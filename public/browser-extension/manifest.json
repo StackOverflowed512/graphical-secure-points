@@ -4,7 +4,7 @@
   "name": "Password Manager Extension",
   "version": "1.0",
   "description": "Autofill passwords from your password manager",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -26,5 +26,14 @@
   ],
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["../../index.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ]
 }

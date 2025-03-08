@@ -1,56 +1,88 @@
 
 // Handle user login and password selection in the popup
 
+// Global variable to store the current URL
+let currentUrl = '';
+
+// Check if user is logged in and get current tab URL
+document.addEventListener('DOMContentLoaded', async function() {
+  // Get current tab URL
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tabs.length > 0) {
+    currentUrl = tabs[0].url;
+    
+    // Extract domain from URL
+    const urlObj = new URL(currentUrl);
+    const domain = urlObj.hostname;
+    
+    // Display the current domain
+    const messageElement = document.getElementById('message');
+    messageElement.textContent = `Looking for passwords for ${domain}`;
+    messageElement.style.display = 'block';
+    
+    // Check if we're logged in to the password manager
+    checkLoggedIn();
+  }
+});
+
 // Check if user is logged in
 function checkLoggedIn() {
-  chrome.storage.local.get(['userToken'], function(result) {
+  chrome.storage.local.get(['userToken', 'userId'], function(result) {
     const isLoggedIn = !!result.userToken;
     document.getElementById('login-container').style.display = isLoggedIn ? 'none' : 'block';
     document.getElementById('passwords-container').style.display = isLoggedIn ? 'block' : 'none';
     
-    if (isLoggedIn) {
-      loadPasswords();
+    if (isLoggedIn && result.userId) {
+      fetchPasswordsForCurrentUrl(result.userId);
     }
   });
 }
 
 // Open the password manager web app
 document.getElementById('login-button').addEventListener('click', function() {
-  chrome.tabs.create({ url: 'https://your-password-manager-url.com' });
+  // Open the password manager in a new tab
+  chrome.tabs.create({ url: chrome.runtime.getURL('../../index.html') });
 });
 
-// Load matching passwords for the current site
-function loadPasswords() {
-  chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-    if (tabs.length === 0) return;
+// Fetch passwords for the current URL
+async function fetchPasswordsForCurrentUrl(userId) {
+  if (!currentUrl) return;
+  
+  try {
+    // In a real-world scenario, this would communicate with your web app's backend
+    // For now, we'll retrieve data from localStorage directly
+    const storageKey = `user_passwords_${userId}`;
+    const storedData = localStorage.getItem(storageKey);
     
-    const currentUrl = new URL(tabs[0].url);
-    const domain = currentUrl.hostname;
+    if (!storedData) {
+      displayNoPasswordsMessage();
+      return;
+    }
     
-    // In a real implementation, you would fetch this from your web app
-    // For this demo, we'll use mock data
-    chrome.storage.local.get(['savedPasswords'], function(result) {
-      const passwords = result.savedPasswords || [];
+    const passwords = JSON.parse(storedData);
+    const domain = new URL(currentUrl).hostname;
+    
+    // Filter passwords that match the current domain
+    const matchingPasswords = passwords.filter(password => {
+      if (!password.url) return false;
       
-      // Filter passwords that match the current domain
-      const matchingPasswords = passwords.filter(password => {
-        if (!password.url) return false;
-        
-        try {
-          const passwordUrl = new URL(
-            password.url.startsWith('http') 
-              ? password.url 
-              : `https://${password.url}`
-          );
-          return passwordUrl.hostname === domain;
-        } catch (e) {
-          return false;
-        }
-      });
-      
-      displayPasswords(matchingPasswords, domain);
+      try {
+        const passwordUrl = new URL(
+          password.url.startsWith('http') 
+            ? password.url 
+            : `https://${password.url}`
+        );
+        return passwordUrl.hostname === domain;
+      } catch (e) {
+        return false;
+      }
     });
-  });
+    
+    displayPasswords(matchingPasswords, domain);
+  } catch (error) {
+    console.error('Error fetching passwords:', error);
+    displayErrorMessage('Failed to fetch passwords');
+  }
 }
 
 // Display matching passwords in the popup
@@ -59,11 +91,14 @@ function displayPasswords(passwords, domain) {
   passwordsList.innerHTML = '';
   
   if (passwords.length === 0) {
-    const message = document.getElementById('message');
-    message.textContent = `No saved passwords found for ${domain}`;
-    message.style.display = 'block';
+    displayNoPasswordsMessage(domain);
     return;
   }
+  
+  const message = document.getElementById('message');
+  message.textContent = `Found ${passwords.length} saved password(s) for ${domain}`;
+  message.style.display = 'block';
+  message.className = 'message';
   
   passwords.forEach(password => {
     const passwordItem = document.createElement('div');
@@ -88,14 +123,36 @@ function displayPasswords(passwords, domain) {
   });
 }
 
+// Display message when no passwords are found
+function displayNoPasswordsMessage(domain = '') {
+  const message = document.getElementById('message');
+  message.textContent = domain 
+    ? `No saved passwords found for ${domain}` 
+    : 'No passwords found';
+  message.style.display = 'block';
+  message.className = 'message';
+  
+  const passwordsList = document.getElementById('passwords-list');
+  passwordsList.innerHTML = '';
+}
+
+// Display error message
+function displayErrorMessage(errorText) {
+  const message = document.getElementById('message');
+  message.textContent = errorText;
+  message.style.display = 'block';
+  message.className = 'message error';
+}
+
 // Send credentials to the content script for autofill
 function autofillPassword(password) {
   chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
     if (tabs.length === 0) return;
     
-    chrome.runtime.sendMessage(
+    chrome.tabs.sendMessage(
+      tabs[0].id,
       {
-        action: 'performAutofill',
+        action: 'fillCredentials',
         username: password.username,
         password: password.password
       },
@@ -118,32 +175,3 @@ function autofillPassword(password) {
     );
   });
 }
-
-// Initialize the popup
-document.addEventListener('DOMContentLoaded', function() {
-  checkLoggedIn();
-  
-  // For demo purposes, create some mock data
-  const mockPasswords = [
-    {
-      id: '1',
-      title: 'Example.com',
-      username: 'user@example.com',
-      password: 'password123',
-      url: 'https://example.com'
-    },
-    {
-      id: '2',
-      title: 'Gmail',
-      username: 'user@gmail.com',
-      password: 'gmailpass123',
-      url: 'https://mail.google.com'
-    }
-  ];
-  
-  // Store mock data for demo
-  chrome.storage.local.set({
-    savedPasswords: mockPasswords,
-    userToken: 'demo-token' // Simulate logged in state
-  });
-});

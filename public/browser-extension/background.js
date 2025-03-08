@@ -1,6 +1,19 @@
 
 // Background script for the extension
 
+// When extension is installed or updated
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('Password Manager extension installed');
+  
+  // Initialize storage
+  chrome.storage.local.get(['userToken', 'userId'], function(result) {
+    if (!result.userToken) {
+      console.log('User not logged in');
+      // We'll set these values when the user logs in through the web app
+    }
+  });
+});
+
 // Listen for the content script to detect login forms
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'loginFormDetected') {
@@ -19,57 +32,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.storage.local.set({
       currentLoginUrl: message.url
     });
+    
+    sendResponse({ success: true });
+    return true;
   }
-});
-
-// Function to autofill credentials on the current page
-function autofillCredentials(tabId, username, password) {
-  return new Promise((resolve) => {
-    chrome.tabs.sendMessage(
-      tabId,
-      {
-        action: 'fillCredentials',
-        username,
-        password
-      },
-      (response) => {
-        resolve(response?.success || false);
-      }
-    );
-  });
-}
-
-// Create context menu for password fields
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'autofillPassword',
-    title: 'Autofill from Password Manager',
-    contexts: ['page']
-  });
-});
-
-// Handle context menu clicks
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'autofillPassword') {
-    // Open the popup to select credentials
-    chrome.action.openPopup();
+  
+  // Handle authentication from the web app
+  if (message.action === 'setCredentials') {
+    chrome.storage.local.set({
+      userToken: message.token,
+      userId: message.userId
+    }, function() {
+      console.log('User credentials saved in extension');
+      sendResponse({ success: true });
+    });
+    return true;
   }
-});
-
-// Make the autofill function available to the popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  
+  // Handle autofill request from popup
   if (message.action === 'performAutofill') {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       if (tabs.length === 0) return;
       
-      const success = await autofillCredentials(
+      chrome.tabs.sendMessage(
         tabs[0].id,
-        message.username,
-        message.password
+        {
+          action: 'fillCredentials',
+          username: message.username,
+          password: message.password
+        },
+        (response) => {
+          sendResponse({ success: response?.success || false });
+        }
       );
-      
-      sendResponse({ success });
     });
     return true;
+  }
+});
+
+// Reset badge when tab changes
+chrome.tabs.onActivated.addListener(function(activeInfo) {
+  chrome.action.setBadgeText({ text: '', tabId: activeInfo.tabId });
+});
+
+// Reset badge when navigating to a new page
+chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+  if (changeInfo.status === 'loading') {
+    chrome.action.setBadgeText({ text: '', tabId: tabId });
   }
 });

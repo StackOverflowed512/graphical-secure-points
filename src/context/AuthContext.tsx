@@ -1,17 +1,17 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { AuthContextType, LoginData, RegisterData, User } from "../types/auth";
-import { simulateAuth } from "../utils/api";
+import { User, LoginFormData, RegisterFormData, AuthContextType } from "../types/auth";
 import { toast } from "@/components/ui/use-toast";
+import { loginUser, registerUser } from "@/utils/authUtils";
+import { setupExtensionHandler, initializeExtension } from "@/utils/extensionConnector";
 
-// Create the context with default values
+// Create context with default values
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  loading: false,
-  error: null,
   isAuthenticated: false,
-  register: async () => {},
-  login: async () => {},
+  loading: true,
+  login: async () => false,
+  register: async () => false,
   logout: () => {},
 });
 
@@ -19,111 +19,110 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
 
-  // Check if user is already logged in on mount
+  // Initialize auth state from localStorage on component mount
   useEffect(() => {
-    const checkAuthStatus = async () => {
+    const storedUser = localStorage.getItem("user");
+    
+    if (storedUser) {
       try {
-        const currentUser = await simulateAuth.getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-          setIsAuthenticated(true);
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        
+        // Initialize extension connection if the user is logged in
+        if (parsedUser && parsedUser.id) {
+          setupExtensionHandler();
+          initializeExtension(parsedUser.id, parsedUser.token || "auth-token");
         }
-      } catch (err) {
-        console.error("Auth check failed:", err);
-      } finally {
-        setLoading(false);
+      } catch (error) {
+        console.error("Error parsing stored user data:", error);
+        localStorage.removeItem("user");
       }
-    };
-
-    checkAuthStatus();
+    }
+    
+    setLoading(false);
   }, []);
 
-  // Register a new user
-  const register = async (data: RegisterData) => {
+  // Login function
+  const login = async (data: LoginFormData): Promise<boolean> => {
     setLoading(true);
-    setError(null);
+    
     try {
-      const newUser = await simulateAuth.register(data);
-      setUser(newUser);
-      setIsAuthenticated(true);
-      toast({
-        title: "Registration successful",
-        description: `Welcome, ${newUser.username}!`,
-      });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Registration failed";
-      setError(errorMessage);
-      toast({
-        title: "Registration failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Login user
-  const login = async (data: LoginData) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const loggedInUser = await simulateAuth.login(data);
-      setUser(loggedInUser);
-      setIsAuthenticated(true);
+      const user = await loginUser(data);
+      setUser(user);
+      localStorage.setItem("user", JSON.stringify(user));
+      
+      // Initialize extension connection when user logs in
+      setupExtensionHandler();
+      initializeExtension(user.id, user.token || "auth-token");
+      
       toast({
         title: "Login successful",
-        description: `Welcome back, ${loggedInUser.username}!`,
+        description: `Welcome back, ${user.username}!`,
       });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Login failed";
-      setError(errorMessage);
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Login failed";
       toast({
+        variant: "destructive",
         title: "Login failed",
         description: errorMessage,
-        variant: "destructive",
       });
-      throw err;
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  // Logout user
-  const logout = async () => {
+  // Register function
+  const register = async (data: RegisterFormData): Promise<boolean> => {
     setLoading(true);
+    
     try {
-      await simulateAuth.logout();
-      setUser(null);
-      setIsAuthenticated(false);
+      const user = await registerUser(data);
+      setUser(user);
+      localStorage.setItem("user", JSON.stringify(user));
+      
+      // Initialize extension connection when user registers
+      setupExtensionHandler();
+      initializeExtension(user.id, user.token || "auth-token");
+      
       toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
+        title: "Registration successful",
+        description: `Welcome, ${user.username}!`,
       });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Logout failed";
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Registration failed";
       toast({
-        title: "Logout failed",
-        description: errorMessage,
         variant: "destructive",
+        title: "Registration failed",
+        description: errorMessage,
       });
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
+  // Logout function
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("user");
+    toast({
+      title: "Logged out",
+      description: "You have been successfully logged out.",
+    });
+  };
+
+  // Context value
   const value = {
     user,
+    isAuthenticated: !!user,
     loading,
-    error,
-    isAuthenticated,
-    register,
     login,
+    register,
     logout,
   };
 
