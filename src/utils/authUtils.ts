@@ -1,5 +1,5 @@
 
-import { ClickPoint } from "../types/auth";
+import { ClickPoint, LoginData, RegisterData, User } from "../types/auth";
 
 // Default images for authentication
 export const DEFAULT_AUTH_IMAGES = [

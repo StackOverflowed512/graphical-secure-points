@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { User, LoginFormData, RegisterFormData, AuthContextType } from "../types/auth";
+import { User, LoginData, RegisterData, AuthContextType } from "../types/auth";
 import { toast } from "@/components/ui/use-toast";
-import { loginUser, registerUser } from "@/utils/authUtils";
+import { DEFAULT_AUTH_IMAGES } from "@/utils/authUtils";
 import { setupExtensionHandler, initializeExtension } from "@/utils/extensionConnector";
 
 // Create context with default values
@@ -10,8 +10,9 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isAuthenticated: false,
   loading: true,
-  login: async () => false,
-  register: async () => false,
+  error: null,
+  login: async () => {},
+  register: async () => {},
   logout: () => {},
 });
 
@@ -20,6 +21,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Initialize auth state from localStorage on component mount
   useEffect(() => {
@@ -45,62 +47,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Login function
-  const login = async (data: LoginFormData): Promise<boolean> => {
+  const login = async (data: LoginData): Promise<void> => {
     setLoading(true);
+    setError(null);
     
     try {
-      const user = await loginUser(data);
-      setUser(user);
-      localStorage.setItem("user", JSON.stringify(user));
+      // Simulate login API call - in a real app, this would be an actual API call
+      const userData = {
+        id: 'user123',
+        username: data.email.split('@')[0],
+        email: data.email,
+        token: 'sample-token-' + Math.random().toString(36).substring(2)
+      };
+      
+      setUser(userData);
+      localStorage.setItem("user", JSON.stringify(userData));
       
       // Initialize extension connection when user logs in
       setupExtensionHandler();
-      initializeExtension(user.id, user.token || "auth-token");
+      initializeExtension(userData.id, userData.token);
       
       toast({
         title: "Login successful",
-        description: `Welcome back, ${user.username}!`,
+        description: `Welcome back, ${userData.username}!`,
       });
-      return true;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Login failed";
+      setError(errorMessage);
       toast({
         variant: "destructive",
         title: "Login failed",
         description: errorMessage,
       });
-      return false;
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
   // Register function
-  const register = async (data: RegisterFormData): Promise<boolean> => {
+  const register = async (data: RegisterData): Promise<void> => {
     setLoading(true);
+    setError(null);
     
     try {
-      const user = await registerUser(data);
-      setUser(user);
-      localStorage.setItem("user", JSON.stringify(user));
+      // Simulate register API call - in a real app, this would be an actual API call
+      const userData = {
+        id: 'user' + Math.random().toString(36).substring(2),
+        username: data.username || data.email.split('@')[0],
+        email: data.email,
+        token: 'sample-token-' + Math.random().toString(36).substring(2)
+      };
+      
+      setUser(userData);
+      localStorage.setItem("user", JSON.stringify(userData));
       
       // Initialize extension connection when user registers
       setupExtensionHandler();
-      initializeExtension(user.id, user.token || "auth-token");
+      initializeExtension(userData.id, userData.token);
       
       toast({
         title: "Registration successful",
-        description: `Welcome, ${user.username}!`,
+        description: `Welcome, ${userData.username}!`,
       });
-      return true;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Registration failed";
+      setError(errorMessage);
       toast({
         variant: "destructive",
         title: "Registration failed",
         description: errorMessage,
       });
-      return false;
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -109,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Logout function
   const logout = () => {
     setUser(null);
+    setError(null);
     localStorage.removeItem("user");
     toast({
       title: "Logged out",
@@ -117,10 +136,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Context value
-  const value = {
+  const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
     loading,
+    error,
     login,
     register,
     logout,
