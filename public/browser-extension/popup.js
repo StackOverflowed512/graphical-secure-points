@@ -1,177 +1,173 @@
 
-// Handle user login and password selection in the popup
+// DOM Elements
+let loginButton;
+let loginContainer;
+let passwordsContainer;
+let passwordsList;
+let messageElement;
 
-// Global variable to store the current URL
-let currentUrl = '';
+// State
+let currentUser = null;
+let currentTab = null;
+let availablePasswords = [];
 
-// Check if user is logged in and get current tab URL
-document.addEventListener('DOMContentLoaded', async function() {
-  // Get current tab URL
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tabs.length > 0) {
-    currentUrl = tabs[0].url;
-    
-    // Extract domain from URL
-    const urlObj = new URL(currentUrl);
-    const domain = urlObj.hostname;
-    
-    // Display the current domain
-    const messageElement = document.getElementById('message');
-    messageElement.textContent = `Looking for passwords for ${domain}`;
-    messageElement.style.display = 'block';
-    
-    // Check if we're logged in to the password manager
-    checkLoggedIn();
-  }
-});
-
-// Check if user is logged in
-function checkLoggedIn() {
-  chrome.storage.local.get(['userToken', 'userId'], function(result) {
-    const isLoggedIn = !!result.userToken;
-    document.getElementById('login-container').style.display = isLoggedIn ? 'none' : 'block';
-    document.getElementById('passwords-container').style.display = isLoggedIn ? 'block' : 'none';
-    
-    if (isLoggedIn && result.userId) {
-      fetchPasswordsForCurrentUrl(result.userId);
-    }
-  });
-}
-
-// Open the password manager web app
-document.getElementById('login-button').addEventListener('click', function() {
-  // Open the password manager in a new tab
-  chrome.tabs.create({ url: chrome.runtime.getURL('../../index.html') });
-});
-
-// Fetch passwords for the current URL
-async function fetchPasswordsForCurrentUrl(userId) {
-  if (!currentUrl) return;
+// Initialize popup
+document.addEventListener('DOMContentLoaded', function() {
+  // Get elements
+  loginButton = document.getElementById('login-button');
+  loginContainer = document.getElementById('login-container');
+  passwordsContainer = document.getElementById('passwords-container');
+  passwordsList = document.getElementById('passwords-list');
+  messageElement = document.getElementById('message');
   
+  // Set up event listeners
+  loginButton.addEventListener('click', openPasswordManager);
+  
+  // Initialize the popup
+  initializePopup();
+});
+
+// Initialize the popup state
+async function initializePopup() {
   try {
-    // In a real-world scenario, this would communicate with your web app's backend
-    // For now, we'll retrieve data from localStorage directly
-    const storageKey = `user_passwords_${userId}`;
-    const storedData = localStorage.getItem(storageKey);
+    // Get the current tab
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentTab = tabs[0];
     
-    if (!storedData) {
-      displayNoPasswordsMessage();
-      return;
-    }
-    
-    const passwords = JSON.parse(storedData);
-    const domain = new URL(currentUrl).hostname;
-    
-    // Filter passwords that match the current domain
-    const matchingPasswords = passwords.filter(password => {
-      if (!password.url) return false;
-      
-      try {
-        const passwordUrl = new URL(
-          password.url.startsWith('http') 
-            ? password.url 
-            : `https://${password.url}`
-        );
-        return passwordUrl.hostname === domain;
-      } catch (e) {
-        return false;
+    // Check if we're logged in
+    chrome.storage.local.get(['user'], function(result) {
+      if (result.user) {
+        currentUser = result.user;
+        fetchPasswordsForCurrentSite();
+      } else {
+        showLoginView();
       }
     });
-    
-    displayPasswords(matchingPasswords, domain);
   } catch (error) {
-    console.error('Error fetching passwords:', error);
-    displayErrorMessage('Failed to fetch passwords');
+    showError('Error initializing popup: ' + error.message);
   }
 }
 
-// Display matching passwords in the popup
-function displayPasswords(passwords, domain) {
-  const passwordsList = document.getElementById('passwords-list');
-  passwordsList.innerHTML = '';
-  
-  if (passwords.length === 0) {
-    displayNoPasswordsMessage(domain);
+// Show the login view
+function showLoginView() {
+  loginContainer.style.display = 'block';
+  passwordsContainer.style.display = 'none';
+}
+
+// Show the passwords view
+function showPasswordsView() {
+  loginContainer.style.display = 'none';
+  passwordsContainer.style.display = 'block';
+}
+
+// Open the password manager in a new tab
+function openPasswordManager() {
+  chrome.tabs.create({ url: chrome.runtime.getURL('../../index.html') });
+}
+
+// Fetch passwords for the current site
+function fetchPasswordsForCurrentSite() {
+  if (!currentUser || !currentTab) {
+    showLoginView();
     return;
   }
   
-  const message = document.getElementById('message');
-  message.textContent = `Found ${passwords.length} saved password(s) for ${domain}`;
-  message.style.display = 'block';
-  message.className = 'message';
+  // Get the domain from the current tab URL
+  const url = new URL(currentTab.url);
+  const domain = url.hostname;
   
-  passwords.forEach(password => {
+  // Check if the domain is empty or not valid
+  if (!domain) {
+    showMessage('Cannot suggest passwords for this page', true);
+    return;
+  }
+  
+  // Retrieve passwords for this user
+  chrome.storage.local.get([`passwords_${currentUser.id}`], function(result) {
+    const userPasswords = result[`passwords_${currentUser.id}`] || [];
+    
+    // Filter passwords for the current domain
+    availablePasswords = userPasswords.filter(password => {
+      if (!password.url) return false;
+      
+      // Clean URLs for comparison
+      const passwordUrl = password.url
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .split('/')[0];
+      
+      const currentDomain = domain
+        .replace(/^www\./, '');
+      
+      return passwordUrl.includes(currentDomain) || currentDomain.includes(passwordUrl);
+    });
+    
+    if (availablePasswords.length > 0) {
+      showPasswordsList();
+    } else {
+      showMessage('No saved passwords found for this site');
+    }
+    
+    showPasswordsView();
+  });
+}
+
+// Show the list of available passwords
+function showPasswordsList() {
+  // Clear the list
+  passwordsList.innerHTML = '';
+  
+  // Add each password to the list
+  availablePasswords.forEach(password => {
     const passwordItem = document.createElement('div');
     passwordItem.className = 'password-item';
+    passwordItem.innerHTML = `
+      <div class="password-title">${password.title}</div>
+      <div class="password-username">${password.username}</div>
+    `;
     
-    const titleElement = document.createElement('div');
-    titleElement.className = 'password-title';
-    titleElement.textContent = password.title;
-    
-    const usernameElement = document.createElement('div');
-    usernameElement.className = 'password-username';
-    usernameElement.textContent = password.username;
-    
-    passwordItem.appendChild(titleElement);
-    passwordItem.appendChild(usernameElement);
-    
-    passwordItem.addEventListener('click', function() {
-      autofillPassword(password);
+    // Add click event to autofill
+    passwordItem.addEventListener('click', () => {
+      autofillCredentials(password);
     });
     
     passwordsList.appendChild(passwordItem);
   });
 }
 
-// Display message when no passwords are found
-function displayNoPasswordsMessage(domain = '') {
-  const message = document.getElementById('message');
-  message.textContent = domain 
-    ? `No saved passwords found for ${domain}` 
-    : 'No passwords found';
-  message.style.display = 'block';
-  message.className = 'message';
-  
-  const passwordsList = document.getElementById('passwords-list');
-  passwordsList.innerHTML = '';
-}
-
-// Display error message
-function displayErrorMessage(errorText) {
-  const message = document.getElementById('message');
-  message.textContent = errorText;
-  message.style.display = 'block';
-  message.className = 'message error';
-}
-
-// Send credentials to the content script for autofill
-function autofillPassword(password) {
-  chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-    if (tabs.length === 0) return;
-    
-    chrome.tabs.sendMessage(
-      tabs[0].id,
-      {
-        action: 'fillCredentials',
-        username: password.username,
-        password: password.password
-      },
-      function(response) {
-        const message = document.getElementById('message');
-        
-        if (response && response.success) {
-          message.textContent = 'Credentials autofilled successfully!';
-          message.className = 'message';
-        } else {
-          message.textContent = 'Could not find login form on this page.';
-          message.className = 'message error';
-        }
-        
-        message.style.display = 'block';
-        
-        // Close popup after a short delay
+// Autofill credentials on the current page
+function autofillCredentials(password) {
+  chrome.tabs.sendMessage(
+    currentTab.id,
+    {
+      action: 'fillCredentials',
+      username: password.username,
+      password: password.password
+    },
+    (response) => {
+      if (response && response.success) {
+        showMessage('Credentials filled successfully!');
         setTimeout(() => window.close(), 1500);
+      } else {
+        showMessage('Could not find login fields on this page', true);
       }
-    );
-  });
+    }
+  );
+}
+
+// Show a message in the popup
+function showMessage(message, isError = false) {
+  messageElement.textContent = message;
+  messageElement.style.display = 'block';
+  
+  if (isError) {
+    messageElement.classList.add('error');
+  } else {
+    messageElement.classList.remove('error');
+  }
+}
+
+// Show an error message
+function showError(message) {
+  showMessage(message, true);
 }

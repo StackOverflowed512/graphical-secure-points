@@ -1,8 +1,10 @@
 
 import React, { useEffect, useState } from "react";
 import { usePasswords } from "@/context/PasswordContext";
+import { useAuth } from "@/context/AuthContext";
 import PasswordList from "./PasswordList";
 import PasswordForm from "./PasswordForm";
+import { syncPasswordsWithExtension, isExtensionInstalled } from "@/utils/extensionConnector";
 import { Password, CreatePasswordData, UpdatePasswordData } from "@/types/password";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -17,12 +19,14 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const PasswordDashboard: React.FC = () => {
+  const { user } = useAuth();
   const { passwords, loading, getPasswords, addPassword, updatePassword, deletePassword } = usePasswords();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedPassword, setSelectedPassword] = useState<Password | null>(null);
   const [passwordToDelete, setPasswordToDelete] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [extensionDetected, setExtensionDetected] = useState(false);
 
   // Load passwords when component mounts
   useEffect(() => {
@@ -34,9 +38,19 @@ const PasswordDashboard: React.FC = () => {
     
     loadPasswords();
     
+    // Check for extension
+    setExtensionDetected(isExtensionInstalled());
+    
     // Debug
     console.log("PasswordDashboard mounted, loading passwords");
   }, [getPasswords]);
+
+  // Sync passwords with extension when they change
+  useEffect(() => {
+    if (user && passwords.length > 0 && extensionDetected) {
+      syncPasswordsWithExtension(user.id, passwords);
+    }
+  }, [user, passwords, extensionDetected]);
 
   const handleAddPassword = () => {
     setSelectedPassword(null);

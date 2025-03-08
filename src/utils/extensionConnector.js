@@ -16,16 +16,48 @@ export const authenticateExtension = (userId, token) => {
   }
   
   try {
-    chrome.runtime.sendMessage({
-      action: 'setCredentials',
-      userId,
-      token
-    }, function(response) {
-      console.log('Extension authenticated:', response);
-      return response && response.success;
-    });
+    chrome.runtime.sendMessage(
+      chrome.runtime.id,
+      {
+        action: 'setCredentials',
+        userId,
+        token
+      },
+      function(response) {
+        console.log('Extension authenticated:', response);
+        return response && response.success;
+      }
+    );
+    return true;
   } catch (error) {
     console.error('Error authenticating extension:', error);
+    return false;
+  }
+};
+
+// Sync passwords with the extension
+export const syncPasswordsWithExtension = (userId, passwords) => {
+  if (!isExtensionInstalled()) {
+    console.log('Browser extension not installed');
+    return false;
+  }
+  
+  try {
+    chrome.runtime.sendMessage(
+      chrome.runtime.id,
+      {
+        action: 'savePasswords',
+        userId,
+        passwords
+      },
+      function(response) {
+        console.log('Passwords synced with extension:', response);
+        return response && response.success;
+      }
+    );
+    return true;
+  } catch (error) {
+    console.error('Error syncing passwords with extension:', error);
     return false;
   }
 };
@@ -38,14 +70,29 @@ export const requestAutofill = (username, password) => {
   }
   
   try {
-    chrome.runtime.sendMessage({
-      action: 'performAutofill',
-      username,
-      password
-    }, function(response) {
-      console.log('Autofill performed:', response);
-      return response && response.success;
+    // Get the active tab
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      if (!tabs || tabs.length === 0) {
+        console.error('No active tab found');
+        return false;
+      }
+      
+      // Send message to content script
+      chrome.tabs.sendMessage(
+        tabs[0].id,
+        {
+          action: 'fillCredentials',
+          username,
+          password
+        },
+        function(response) {
+          console.log('Autofill performed:', response);
+          return response && response.success;
+        }
+      );
     });
+    
+    return true;
   } catch (error) {
     console.error('Error performing autofill:', error);
     return false;
@@ -68,7 +115,8 @@ export const setupExtensionHandler = () => {
     window.passwordManagerExtension = {
       isInstalled: isExtensionInstalled,
       authenticate: authenticateExtension,
-      autofill: requestAutofill
+      autofill: requestAutofill,
+      syncPasswords: syncPasswordsWithExtension
     };
   }
 };

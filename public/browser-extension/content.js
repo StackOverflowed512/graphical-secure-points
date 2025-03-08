@@ -5,13 +5,14 @@
 function findLoginFields() {
   const usernameSelectors = [
     'input[type="email"]',
-    'input[type="text"][name*="email"]',
+    'input[name*="email"]',
+    'input[id*="email"]',
     'input[type="text"][name*="user"]',
-    'input[type="text"][id*="email"]',
     'input[type="text"][id*="user"]',
     'input[type="text"][autocomplete="username"]',
     'input[name="username"]',
-    'input[id="username"]'
+    'input[id="username"]',
+    'input[autocomplete="email"]'
   ];
   
   const passwordSelectors = [
@@ -27,14 +28,14 @@ function findLoginFields() {
 // Function to fill credentials
 function fillCredentials(username, password) {
   const { usernameField, passwordField } = findLoginFields();
-  let success = false;
+  let successCount = 0;
   
   if (usernameField && username) {
     usernameField.focus();
     usernameField.value = username;
     usernameField.dispatchEvent(new Event('input', { bubbles: true }));
     usernameField.dispatchEvent(new Event('change', { bubbles: true }));
-    success = true;
+    successCount++;
   }
   
   if (passwordField && password) {
@@ -42,24 +43,29 @@ function fillCredentials(username, password) {
     passwordField.value = password;
     passwordField.dispatchEvent(new Event('input', { bubbles: true }));
     passwordField.dispatchEvent(new Event('change', { bubbles: true }));
-    success = true;
+    successCount++;
   }
   
-  return success;
+  return { 
+    success: successCount > 0,
+    message: `Filled ${successCount} field(s)` 
+  };
 }
 
 // Listen for messages from the extension
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('Content script received message:', message);
+  
   if (message.action === 'fillCredentials') {
-    const success = fillCredentials(message.username, message.password);
-    sendResponse({ success });
+    const result = fillCredentials(message.username, message.password);
+    sendResponse(result);
     return true;
   }
   
   if (message.action === 'checkForLoginForm') {
     const { usernameField, passwordField } = findLoginFields();
     sendResponse({
-      hasLoginForm: !!usernameField && !!passwordField
+      hasLoginForm: !!usernameField || !!passwordField
     });
     return true;
   }
@@ -69,19 +75,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 window.addEventListener('load', () => {
   setTimeout(() => {
     const { usernameField, passwordField } = findLoginFields();
-    if (usernameField && passwordField) {
+    if (usernameField || passwordField) {
       chrome.runtime.sendMessage({
         action: 'loginFormDetected',
         url: window.location.href
       });
     }
-  }, 500);
+  }, 1000);
 });
 
 // Also check for login forms that might be added dynamically
 const observer = new MutationObserver(() => {
   const { usernameField, passwordField } = findLoginFields();
-  if (usernameField && passwordField) {
+  if (usernameField || passwordField) {
     chrome.runtime.sendMessage({
       action: 'loginFormDetected',
       url: window.location.href
@@ -94,3 +100,5 @@ observer.observe(document.body, {
   childList: true, 
   subtree: true 
 });
+
+console.log('Password Manager Content Script initialized');
