@@ -23,7 +23,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
-import { isExtensionInstalled, getExtensionUrl } from "@/utils/extensionConnector";
+import { isExtensionInstalled, getExtensionUrl, requestAutofill } from "@/utils/extensionConnector";
 
 const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
     const [searchTerm, setSearchTerm] = useState("");
@@ -32,7 +32,20 @@ const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
 
     // Check if extension is installed
     useEffect(() => {
-        setExtensionInstalled(isExtensionInstalled());
+        const checkExtension = () => {
+            const isInstalled = isExtensionInstalled();
+            console.log("Extension installed:", isInstalled);
+            setExtensionInstalled(isInstalled);
+        };
+        
+        checkExtension();
+        
+        // Recheck when window is focused
+        window.addEventListener('focus', checkExtension);
+        
+        return () => {
+            window.removeEventListener('focus', checkExtension);
+        };
     }, []);
 
     // Toggle password visibility
@@ -54,20 +67,32 @@ const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
 
     // Autofill password in a website
     const autofillPassword = (password) => {
-        if (extensionInstalled && window.passwordManagerExtension) {
-            window.passwordManagerExtension.autofill(
-                password.username,
-                password.password
-            );
-            
+        console.log("Autofill requested for:", password.title);
+        
+        if (!extensionInstalled) {
+            toast({
+                title: "Extension not detected",
+                description: "Please install the browser extension to use autofill.",
+                variant: "destructive",
+            });
+            return;
+        }
+        
+        const result = requestAutofill(
+            password.username,
+            password.password,
+            password.url
+        );
+        
+        if (result.success) {
             toast({
                 title: "Autofill requested",
                 description: `Credentials for ${password.title} will be filled when you visit the site.`,
             });
         } else {
             toast({
-                title: "Extension not detected",
-                description: "Please install the browser extension to use autofill.",
+                title: "Autofill failed",
+                description: result.message || "Failed to communicate with the extension.",
                 variant: "destructive",
             });
         }
@@ -83,12 +108,7 @@ const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
 
     // Get the extension download URL
     const getExtensionDownloadUrl = () => {
-        try {
-            return getExtensionUrl();
-        } catch (error) {
-            console.error('Error getting extension URL:', error);
-            return '/browser-extension';
-        }
+        return getExtensionUrl();
     };
 
     return (
@@ -172,7 +192,6 @@ const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
                                                 onClick={() => autofillPassword(password)}
                                                 className="h-8 text-xs"
                                                 title="Autofill on site"
-                                                disabled={!extensionInstalled}
                                             >
                                                 Autofill
                                             </Button>

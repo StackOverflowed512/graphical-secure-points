@@ -30,7 +30,22 @@ const PasswordDashboard: React.FC = () => {
 
   // Set up extension handler when component mounts
   useEffect(() => {
+    console.log("Setting up extension handler");
     setupExtensionHandler();
+    
+    // Check extension on mount and on window focus
+    const checkExtension = () => {
+      const detected = isExtensionInstalled();
+      console.log("Extension detected:", detected);
+      setExtensionDetected(detected);
+    };
+    
+    checkExtension();
+    window.addEventListener('focus', checkExtension);
+    
+    return () => {
+      window.removeEventListener('focus', checkExtension);
+    };
   }, []);
 
   // Load passwords when component mounts
@@ -43,9 +58,6 @@ const PasswordDashboard: React.FC = () => {
     
     loadPasswords();
     
-    // Check for extension
-    setExtensionDetected(isExtensionInstalled());
-    
     // Debug
     console.log("PasswordDashboard mounted, loading passwords");
   }, [getPasswords]);
@@ -53,6 +65,7 @@ const PasswordDashboard: React.FC = () => {
   // Sync passwords with extension when they change
   useEffect(() => {
     if (user && passwords.length > 0 && extensionDetected) {
+      console.log("Syncing passwords with extension");
       syncPasswordsWithExtension(user.id, passwords);
     }
   }, [user, passwords, extensionDetected]);
@@ -111,6 +124,9 @@ const PasswordDashboard: React.FC = () => {
         <h2 className="text-2xl font-bold">Password Manager</h2>
         <p className="text-muted-foreground">
           Securely store and manage your passwords in one place.
+          {extensionDetected && (
+            <span className="ml-2 text-green-500">Browser extension detected ✓</span>
+          )}
         </p>
       </div>
 

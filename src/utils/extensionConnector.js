@@ -5,19 +5,22 @@
 
 // Check if browser extension is installed
 export const isExtensionInstalled = () => {
-  return typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
+  try {
+    return typeof chrome !== 'undefined' && chrome.runtime && !!chrome.runtime.id;
+  } catch (error) {
+    console.error('Error checking extension:', error);
+    return false;
+  }
 };
 
 // Get extension URL for installation
 export const getExtensionUrl = () => {
   try {
-    if (isExtensionInstalled() && chrome.runtime.getURL) {
-      return chrome.runtime.getURL('index.html');
-    }
-    return '/browser-extension/index.html'; // Fallback path
+    // Chrome Web Store URL would go here in production
+    return '/browser-extension/index.html'; // Local development path
   } catch (error) {
     console.error('Error getting extension URL:', error);
-    return '/browser-extension/index.html'; // Fallback path
+    return '/browser-extension/index.html';
   }
 };
 
@@ -74,44 +77,33 @@ export const syncPasswordsWithExtension = (userId, passwords) => {
 };
 
 // Request autofill for a specific password
-export const requestAutofill = (username, password) => {
+export const requestAutofill = (username, password, url) => {
+  console.log('Requesting autofill for:', { username, password, url });
+  
   if (!isExtensionInstalled()) {
     console.log('Browser extension not installed');
-    return false;
+    return { success: false, message: 'Browser extension not installed' };
   }
   
   try {
-    // Get the active tab
-    if (chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-        if (!tabs || tabs.length === 0) {
-          console.error('No active tab found');
-          return false;
-        }
-        
-        // Send message to content script
-        chrome.tabs.sendMessage(
-          tabs[0].id,
-          {
-            action: 'fillCredentials',
-            username,
-            password
-          },
-          function(response) {
-            console.log('Autofill performed:', response);
-            return response && response.success;
-          }
-        );
-      });
-    } else {
-      console.error('Chrome tabs API not available');
-      return false;
-    }
+    // Send message directly to the extension
+    chrome.runtime.sendMessage(
+      {
+        action: 'fillCredentials',
+        username,
+        password,
+        url
+      },
+      function(response) {
+        console.log('Autofill response:', response);
+        return response;
+      }
+    );
     
-    return true;
+    return { success: true, message: 'Autofill request sent to extension' };
   } catch (error) {
     console.error('Error performing autofill:', error);
-    return false;
+    return { success: false, message: 'Error communicating with extension' };
   }
 };
 
@@ -134,5 +126,7 @@ export const setupExtensionHandler = () => {
       autofill: requestAutofill,
       syncPasswords: syncPasswordsWithExtension
     };
+    
+    console.log('Extension handler setup complete');
   }
 };

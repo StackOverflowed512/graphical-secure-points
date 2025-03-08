@@ -1,101 +1,80 @@
 
-// Background script for the Password Manager Extension
+console.log('Password Manager Extension Background Script loaded');
 
-// Listen for runtime messages from the web app
-chrome.runtime.onMessageExternal.addListener(
-  function(request, sender, sendResponse) {
-    console.log('External message received:', request);
-    
-    if (request.action === 'setCredentials') {
-      // Store the user info in local storage
-      chrome.storage.local.set({
-        user: {
-          id: request.userId,
-          token: request.token
-        }
-      }, function() {
-        console.log('User credentials saved in extension');
-        sendResponse({ success: true, message: 'Credentials saved' });
-      });
-      return true;
-    }
-    
-    if (request.action === 'savePasswords') {
-      // Store passwords for this user
-      const storageKey = `passwords_${request.userId}`;
-      chrome.storage.local.set({
-        [storageKey]: request.passwords
-      }, function() {
-        console.log('Passwords saved in extension');
-        sendResponse({ success: true, message: 'Passwords saved' });
-      });
-      return true;
-    }
-    
-    // Default response for unsupported actions
-    sendResponse({ success: false, message: 'Action not supported' });
-    return true;
-  }
-);
+// Store user credentials
+let userCredentials = {
+  userId: null,
+  token: null
+};
 
-// Listen for messages from content scripts
-chrome.runtime.onMessage.addListener(
-  function(request, sender, sendResponse) {
-    console.log('Message from content script:', request);
-    
-    if (request.action === 'loginFormDetected') {
-      // Check if we have passwords for this URL
-      const url = request.url;
+// Store passwords
+let savedPasswords = [];
+
+// Handle messages from the web app or content scripts
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  console.log('Background script received message:', request.action);
+  
+  switch (request.action) {
+    case 'setCredentials':
+      // Store user credentials
+      userCredentials.userId = request.userId;
+      userCredentials.token = request.token;
+      console.log('User credentials set:', userCredentials.userId);
+      sendResponse({ success: true });
+      break;
       
-      // Get the current user
-      chrome.storage.local.get(['user'], function(result) {
-        if (!result.user) {
+    case 'savePasswords':
+      // Store passwords
+      if (request.userId === userCredentials.userId) {
+        savedPasswords = request.passwords;
+        console.log('Passwords saved:', savedPasswords.length);
+        sendResponse({ success: true });
+      } else {
+        console.error('User ID mismatch, passwords not saved');
+        sendResponse({ success: false, message: 'User ID mismatch' });
+      }
+      break;
+    
+    case 'fillCredentials':
+      // Forward autofill request to content script
+      console.log('Received fillCredentials request for:', request.url);
+      
+      // If we have active tabs permission, send to active tab
+      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        if (!tabs || !tabs[0]) {
+          console.error('No active tab found');
+          sendResponse({ success: false, message: 'No active tab found' });
           return;
         }
         
-        // Get passwords for this user
-        const userId = result.user.id;
-        const storageKey = `passwords_${userId}`;
+        const activeTab = tabs[0];
+        console.log('Sending autofill request to tab:', activeTab.id);
         
-        chrome.storage.local.get([storageKey], function(data) {
-          const userPasswords = data[storageKey] || [];
-          
-          // Check if we have passwords for this domain
-          const hasPasswordsForDomain = userPasswords.some(password => {
-            if (!password.url) return false;
-            
-            const passwordDomain = password.url
-              .replace(/^https?:\/\//, '')
-              .replace(/^www\./, '')
-              .split('/')[0];
-            
-            const currentDomain = new URL(url).hostname
-              .replace(/^www\./, '');
-            
-            return passwordDomain.includes(currentDomain) || currentDomain.includes(passwordDomain);
-          });
-          
-          // If we have passwords, show the notification
-          if (hasPasswordsForDomain) {
-            chrome.action.setBadgeText({
-              text: "✓",
-              tabId: sender.tab.id
-            });
+        // Send message to content script
+        chrome.tabs.sendMessage(
+          activeTab.id,
+          {
+            action: 'fillCredentials',
+            username: request.username,
+            password: request.password
+          },
+          function(response) {
+            console.log('Content script response:', response);
+            sendResponse(response || { success: false, message: 'No response from content script' });
           }
-        });
+        );
       });
       
-      sendResponse({ received: true });
+      // Must return true to indicate async response
       return true;
-    }
-    
-    return true;
+      
+    default:
+      console.log('Unknown action:', request.action);
+      sendResponse({ success: false, message: 'Unknown action' });
   }
-);
-
-// Listen for installation events
-chrome.runtime.onInstalled.addListener(function(details) {
-  console.log('Extension installed:', details);
+  
+  // Return true if we will send a response asynchronously
+  return true;
 });
 
-console.log('Password Manager Background Script initialized');
+console.log('Password Manager Extension background script ready');

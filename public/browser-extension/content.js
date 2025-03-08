@@ -1,104 +1,107 @@
 
-// This script runs in the context of web pages
+console.log('Password Manager Content Script loaded');
 
 // Function to find username and password fields
-function findLoginFields() {
-  const usernameSelectors = [
-    'input[type="email"]',
-    'input[name*="email"]',
-    'input[id*="email"]',
-    'input[type="text"][name*="user"]',
-    'input[type="text"][id*="user"]',
-    'input[type="text"][autocomplete="username"]',
-    'input[name="username"]',
-    'input[id="username"]',
-    'input[autocomplete="email"]'
-  ];
+function findFormFields() {
+  const fields = {
+    username: null,
+    password: null
+  };
   
-  const passwordSelectors = [
-    'input[type="password"]'
-  ];
+  // Find password field first
+  const passwordFields = Array.from(document.querySelectorAll('input[type="password"]'));
   
-  const usernameField = document.querySelector(usernameSelectors.join(','));
-  const passwordField = document.querySelector(passwordSelectors.join(','));
+  if (passwordFields.length === 0) {
+    console.log('No password fields found on page');
+    return fields;
+  }
   
-  return { usernameField, passwordField };
+  fields.password = passwordFields[0];
+  
+  // Find username field (usually comes before password field)
+  const allInputs = Array.from(document.querySelectorAll('input[type="text"], input[type="email"], input:not([type])'));
+  
+  // Try to find a field that might be a username/email field
+  // Usually it's an input that comes before the password field and has a type of text or email
+  for (const input of allInputs) {
+    // Skip hidden fields
+    if (input.type === 'hidden') continue;
+    
+    // Skip fields that come after the password field in the DOM
+    if (input.compareDocumentPosition(fields.password) & Node.DOCUMENT_POSITION_PRECEDING) continue;
+    
+    // Found a potential username field
+    fields.username = input;
+    break;
+  }
+  
+  // If we didn't find a username field before the password, check for any other visible text/email input
+  if (!fields.username) {
+    fields.username = allInputs.find(input => {
+      return input.type !== 'hidden' && 
+             (input.type === 'text' || input.type === 'email' || input.type === '');
+    });
+  }
+  
+  return fields;
 }
 
-// Function to fill credentials
-function fillCredentials(username, password) {
-  const { usernameField, passwordField } = findLoginFields();
-  let successCount = 0;
+// Function to autofill credentials
+function autofillCredentials(username, password) {
+  console.log('Attempting to autofill credentials');
   
-  if (usernameField && username) {
-    usernameField.focus();
-    usernameField.value = username;
-    usernameField.dispatchEvent(new Event('input', { bubbles: true }));
-    usernameField.dispatchEvent(new Event('change', { bubbles: true }));
-    successCount++;
+  const fields = findFormFields();
+  
+  if (!fields.username && !fields.password) {
+    console.log('No form fields found to autofill');
+    return { success: false, message: 'No form fields found' };
   }
   
-  if (passwordField && password) {
-    passwordField.focus();
-    passwordField.value = password;
-    passwordField.dispatchEvent(new Event('input', { bubbles: true }));
-    passwordField.dispatchEvent(new Event('change', { bubbles: true }));
-    successCount++;
+  // Fill in the fields if found
+  let filled = false;
+  
+  if (fields.username && username) {
+    fields.username.value = username;
+    
+    // Trigger input event to notify the page
+    fields.username.dispatchEvent(new Event('input', { bubbles: true }));
+    fields.username.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    filled = true;
+    console.log('Username field filled');
   }
   
-  return { 
-    success: successCount > 0,
-    message: `Filled ${successCount} field(s)` 
+  if (fields.password && password) {
+    fields.password.value = password;
+    
+    // Trigger input event to notify the page
+    fields.password.dispatchEvent(new Event('input', { bubbles: true }));
+    fields.password.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    filled = true;
+    console.log('Password field filled');
+  }
+  
+  return {
+    success: filled,
+    message: filled ? 'Credentials filled successfully' : 'No fields could be filled'
   };
 }
 
 // Listen for messages from the extension
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Content script received message:', message);
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  console.log('Content script received message:', request.action);
   
-  if (message.action === 'fillCredentials') {
-    const result = fillCredentials(message.username, message.password);
+  if (request.action === 'fillCredentials') {
+    const result = autofillCredentials(request.username, request.password);
     sendResponse(result);
     return true;
   }
   
-  if (message.action === 'checkForLoginForm') {
-    const { usernameField, passwordField } = findLoginFields();
-    sendResponse({
-      hasLoginForm: !!usernameField || !!passwordField
-    });
-    return true;
-  }
+  // Default response for unknown actions
+  sendResponse({ success: false, message: 'Unknown action' });
+  return true;
 });
 
-// Check for login forms when the page loads
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    const { usernameField, passwordField } = findLoginFields();
-    if (usernameField || passwordField) {
-      chrome.runtime.sendMessage({
-        action: 'loginFormDetected',
-        url: window.location.href
-      });
-    }
-  }, 1000);
-});
-
-// Also check for login forms that might be added dynamically
-const observer = new MutationObserver(() => {
-  const { usernameField, passwordField } = findLoginFields();
-  if (usernameField || passwordField) {
-    chrome.runtime.sendMessage({
-      action: 'loginFormDetected',
-      url: window.location.href
-    });
-  }
-});
-
-// Start observing the document body for DOM changes
-observer.observe(document.body, { 
-  childList: true, 
-  subtree: true 
-});
-
-console.log('Password Manager Content Script initialized');
+// Inform that content script is ready
+console.log('Password Manager content script ready');
