@@ -4,7 +4,7 @@ import { usePasswords } from "@/context/PasswordContext";
 import { useAuth } from "@/context/AuthContext";
 import PasswordList from "./PasswordList";
 import PasswordForm from "./PasswordForm";
-import { syncPasswordsWithExtension, isExtensionInstalled } from "@/utils/extensionConnector";
+import { syncPasswordsWithExtension, isExtensionInstalled, setupExtensionHandler } from "@/utils/extensionConnector";
 import { Password, CreatePasswordData, UpdatePasswordData } from "@/types/password";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -27,6 +27,11 @@ const PasswordDashboard: React.FC = () => {
   const [passwordToDelete, setPasswordToDelete] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [extensionDetected, setExtensionDetected] = useState(false);
+
+  // Set up extension handler when component mounts
+  useEffect(() => {
+    setupExtensionHandler();
+  }, []);
 
   // Load passwords when component mounts
   useEffect(() => {

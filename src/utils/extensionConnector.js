@@ -8,6 +8,19 @@ export const isExtensionInstalled = () => {
   return typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
 };
 
+// Get extension URL for installation
+export const getExtensionUrl = () => {
+  try {
+    if (isExtensionInstalled() && chrome.runtime.getURL) {
+      return chrome.runtime.getURL('index.html');
+    }
+    return '/browser-extension/index.html'; // Fallback path
+  } catch (error) {
+    console.error('Error getting extension URL:', error);
+    return '/browser-extension/index.html'; // Fallback path
+  }
+};
+
 // Send authentication information to the extension
 export const authenticateExtension = (userId, token) => {
   if (!isExtensionInstalled()) {
@@ -17,7 +30,6 @@ export const authenticateExtension = (userId, token) => {
   
   try {
     chrome.runtime.sendMessage(
-      chrome.runtime.id,
       {
         action: 'setCredentials',
         userId,
@@ -44,7 +56,6 @@ export const syncPasswordsWithExtension = (userId, passwords) => {
   
   try {
     chrome.runtime.sendMessage(
-      chrome.runtime.id,
       {
         action: 'savePasswords',
         userId,
@@ -71,26 +82,31 @@ export const requestAutofill = (username, password) => {
   
   try {
     // Get the active tab
-    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-      if (!tabs || tabs.length === 0) {
-        console.error('No active tab found');
-        return false;
-      }
-      
-      // Send message to content script
-      chrome.tabs.sendMessage(
-        tabs[0].id,
-        {
-          action: 'fillCredentials',
-          username,
-          password
-        },
-        function(response) {
-          console.log('Autofill performed:', response);
-          return response && response.success;
+    if (chrome.tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        if (!tabs || tabs.length === 0) {
+          console.error('No active tab found');
+          return false;
         }
-      );
-    });
+        
+        // Send message to content script
+        chrome.tabs.sendMessage(
+          tabs[0].id,
+          {
+            action: 'fillCredentials',
+            username,
+            password
+          },
+          function(response) {
+            console.log('Autofill performed:', response);
+            return response && response.success;
+          }
+        );
+      });
+    } else {
+      console.error('Chrome tabs API not available');
+      return false;
+    }
     
     return true;
   } catch (error) {

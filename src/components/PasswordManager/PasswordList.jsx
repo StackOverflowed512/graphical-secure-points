@@ -23,7 +23,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
-import { isExtensionInstalled } from "@/utils/extensionConnector";
+import { isExtensionInstalled, getExtensionUrl } from "@/utils/extensionConnector";
 
 const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
     const [searchTerm, setSearchTerm] = useState("");
@@ -81,6 +81,16 @@ const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
             (password.url && password.url.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
+    // Get the extension download URL
+    const getExtensionDownloadUrl = () => {
+        try {
+            return getExtensionUrl();
+        } catch (error) {
+            console.error('Error getting extension URL:', error);
+            return '/browser-extension';
+        }
+    };
+
     return (
         <div className="space-y-4 w-full">
             <div className="flex justify-between items-center">
@@ -95,7 +105,7 @@ const PasswordList = ({ passwords, loading, onEdit, onDelete, onAdd }) => {
                 </div>
                 <div className="flex gap-2">
                     {!extensionInstalled && (
-                        <Button variant="outline" onClick={() => window.open(chrome.runtime.getURL('../../index.html'), '_blank')}>
+                        <Button variant="outline" onClick={() => window.open(getExtensionDownloadUrl(), '_blank')}>
                             <Download className="mr-2 h-4 w-4" /> Get Extension
                         </Button>
                     )}
