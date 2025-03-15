@@ -27,8 +27,7 @@ export const getExtensionUrl = () => {
 // Get the main application URL for redirecting from the extension
 export const getAppUrl = () => {
   // Get the base URL of the current application
-  const baseUrl = window.location.origin;
-  return baseUrl;
+  return window.location.origin;
 };
 
 // Send authentication information to the extension
@@ -39,15 +38,26 @@ export const authenticateExtension = (userId, token) => {
   }
   
   try {
+    const appUrl = getAppUrl();
+    console.log('Authenticating extension with app URL:', appUrl);
+    
     chrome.runtime.sendMessage(
       {
         action: 'setCredentials',
         userId,
         token,
-        appUrl: getAppUrl() // Send the app URL to the extension
+        appUrl: appUrl
       },
       function(response) {
         console.log('Extension authenticated:', response);
+        
+        // Also store the app URL in extension storage for persistence
+        if (chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set({ appBaseUrl: appUrl }, function() {
+            console.log('App URL stored in extension storage:', appUrl);
+          });
+        }
+        
         return response && response.success;
       }
     );

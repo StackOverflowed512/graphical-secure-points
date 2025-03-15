@@ -6,6 +6,7 @@ import { getExtensionUrl } from "@/utils/extensionConnector";
 
 const ExtensionButton = () => {
     const handleGetExtension = () => {
+        // Open the extension installation page in a new tab
         window.open(getExtensionUrl(), '_blank');
     };
 

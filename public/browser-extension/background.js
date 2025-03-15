@@ -1,4 +1,3 @@
-
 console.log('Password Manager Extension Background Script loaded');
 
 // Store user credentials
@@ -19,6 +18,14 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       // Store user credentials
       userCredentials.userId = request.userId;
       userCredentials.token = request.token;
+      
+      // Store app URL if provided
+      if (request.appUrl) {
+        chrome.storage.local.set({ appBaseUrl: request.appUrl }, function() {
+          console.log('App URL stored:', request.appUrl);
+        });
+      }
+      
       console.log('User credentials set:', userCredentials.userId);
       sendResponse({ success: true });
       break;

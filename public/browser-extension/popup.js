@@ -1,4 +1,3 @@
-
 // DOM Elements
 let loginButton;
 let loginContainer;
@@ -62,7 +61,22 @@ function showPasswordsView() {
 
 // Open the password manager in a new tab
 function openPasswordManager() {
-  chrome.tabs.create({ url: chrome.runtime.getURL('../../index.html') });
+  // Get the base URL from storage or use a default
+  chrome.storage.local.get(['appBaseUrl'], function(result) {
+    let appUrl = result.appBaseUrl || '';
+    
+    // If we don't have a stored URL, try to construct one from the extension URL
+    if (!appUrl) {
+      // Use the extension's origin as fallback
+      const extensionUrl = chrome.runtime.getURL('');
+      // Extract just the origin part (e.g., http://localhost:8080)
+      const urlParts = new URL(extensionUrl);
+      appUrl = `${urlParts.protocol}//${urlParts.hostname}${urlParts.port ? ':' + urlParts.port : ''}`;
+    }
+    
+    console.log('Opening password manager at:', appUrl);
+    chrome.tabs.create({ url: appUrl });
+  });
 }
 
 // Fetch passwords for the current site
