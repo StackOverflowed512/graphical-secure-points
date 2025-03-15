@@ -24,6 +24,13 @@ export const getExtensionUrl = () => {
   }
 };
 
+// Get the main application URL for redirecting from the extension
+export const getAppUrl = () => {
+  // Get the base URL of the current application
+  const baseUrl = window.location.origin;
+  return baseUrl;
+};
+
 // Send authentication information to the extension
 export const authenticateExtension = (userId, token) => {
   if (!isExtensionInstalled()) {
@@ -36,7 +43,8 @@ export const authenticateExtension = (userId, token) => {
       {
         action: 'setCredentials',
         userId,
-        token
+        token,
+        appUrl: getAppUrl() // Send the app URL to the extension
       },
       function(response) {
         console.log('Extension authenticated:', response);
@@ -62,7 +70,8 @@ export const syncPasswordsWithExtension = (userId, passwords) => {
       {
         action: 'savePasswords',
         userId,
-        passwords
+        passwords,
+        appUrl: getAppUrl() // Send the app URL to the extension
       },
       function(response) {
         console.log('Passwords synced with extension:', response);
@@ -124,7 +133,8 @@ export const setupExtensionHandler = () => {
       isInstalled: isExtensionInstalled,
       authenticate: authenticateExtension,
       autofill: requestAutofill,
-      syncPasswords: syncPasswordsWithExtension
+      syncPasswords: syncPasswordsWithExtension,
+      getAppUrl: getAppUrl
     };
     
     console.log('Extension handler setup complete');

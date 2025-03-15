@@ -4,7 +4,7 @@ import { usePasswords } from "@/context/PasswordContext";
 import { useAuth } from "@/context/AuthContext";
 import PasswordList from "./PasswordList";
 import PasswordForm from "./PasswordForm";
-import { syncPasswordsWithExtension, isExtensionInstalled, setupExtensionHandler } from "@/utils/extensionConnector";
+import { syncPasswordsWithExtension, isExtensionInstalled, setupExtensionHandler, getAppUrl } from "@/utils/extensionConnector";
 import { Password, CreatePasswordData, UpdatePasswordData } from "@/types/password";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -43,8 +43,30 @@ const PasswordDashboard: React.FC = () => {
     checkExtension();
     window.addEventListener('focus', checkExtension);
     
+    // Listen for extension messages
+    const handleExtensionMessage = (event: MessageEvent) => {
+      // Check if the message is from our extension
+      if (event.data && event.data.type === 'FROM_EXTENSION') {
+        console.log('Message from extension:', event.data);
+        if (event.data.action === 'requestAutofill') {
+          toast({
+            title: "Autofill Requested",
+            description: "Extension is requesting password autofill.",
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleExtensionMessage);
+    
+    // Make app URL available to parent contexts (for iframe embedding)
+    if (window.parent) {
+      window.parent.postMessage({ type: 'APP_READY', appUrl: getAppUrl() }, '*');
+    }
+    
     return () => {
       window.removeEventListener('focus', checkExtension);
+      window.removeEventListener('message', handleExtensionMessage);
     };
   }, []);
 
