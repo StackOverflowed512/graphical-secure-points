@@ -1,3 +1,4 @@
+
 console.log('Password Manager Extension Background Script loaded');
 
 // Store user credentials
@@ -21,8 +22,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       
       // Store app URL if provided
       if (request.appUrl) {
+        console.log('Storing app URL:', request.appUrl);
         chrome.storage.local.set({ appBaseUrl: request.appUrl }, function() {
           console.log('App URL stored:', request.appUrl);
+          // Also store in localStorage as fallback
+          try {
+            localStorage.setItem('appBaseUrl', request.appUrl);
+          } catch (e) {
+            console.error('Could not store in localStorage:', e);
+          }
         });
       }
       
@@ -35,6 +43,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       if (request.userId === userCredentials.userId) {
         savedPasswords = request.passwords;
         console.log('Passwords saved:', savedPasswords.length);
+        
+        // Store passwords in Chrome storage for persistence
+        chrome.storage.local.set(
+          { [`passwords_${request.userId}`]: request.passwords }, 
+          function() {
+            console.log('Passwords stored in Chrome storage');
+          }
+        );
+        
         sendResponse({ success: true });
       } else {
         console.error('User ID mismatch, passwords not saved');
@@ -82,6 +99,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   
   // Return true if we will send a response asynchronously
   return true;
+});
+
+// Handle extension installation or update
+chrome.runtime.onInstalled.addListener(function(details) {
+  console.log('Extension installed or updated:', details.reason);
 });
 
 console.log('Password Manager Extension background script ready');

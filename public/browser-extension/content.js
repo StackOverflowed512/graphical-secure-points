@@ -62,22 +62,16 @@ function autofillCredentials(username, password) {
   
   if (fields.username && username) {
     fields.username.value = username;
-    
-    // Trigger input event to notify the page
     fields.username.dispatchEvent(new Event('input', { bubbles: true }));
     fields.username.dispatchEvent(new Event('change', { bubbles: true }));
-    
     filled = true;
     console.log('Username field filled');
   }
   
   if (fields.password && password) {
     fields.password.value = password;
-    
-    // Trigger input event to notify the page
     fields.password.dispatchEvent(new Event('input', { bubbles: true }));
     fields.password.dispatchEvent(new Event('change', { bubbles: true }));
-    
     filled = true;
     console.log('Password field filled');
   }
@@ -101,6 +95,17 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   // Default response for unknown actions
   sendResponse({ success: false, message: 'Unknown action' });
   return true;
+});
+
+// Create a messaging channel to the page
+window.addEventListener('message', function(event) {
+  // We only accept messages from ourselves
+  if (event.source !== window) return;
+  
+  if (event.data.type && event.data.type === 'FROM_PAGE') {
+    console.log('Content script received message from page:', event.data);
+    // Handle messages from the page if needed
+  }
 });
 
 // Inform that content script is ready

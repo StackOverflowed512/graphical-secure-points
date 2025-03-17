@@ -16,7 +16,7 @@ export const isExtensionInstalled = () => {
 // Get extension URL for installation
 export const getExtensionUrl = () => {
   try {
-    // Chrome Web Store URL would go here in production
+    // In a production environment, this would be the Chrome Web Store URL
     return '/browser-extension/index.html'; // Local development path
   } catch (error) {
     console.error('Error getting extension URL:', error);
@@ -40,6 +40,13 @@ export const authenticateExtension = (userId, token) => {
   try {
     const appUrl = getAppUrl();
     console.log('Authenticating extension with app URL:', appUrl);
+    
+    // Store app URL in localStorage as a fallback
+    try {
+      localStorage.setItem('appBaseUrl', appUrl);
+    } catch (e) {
+      console.error('Could not store appUrl in localStorage:', e);
+    }
     
     chrome.runtime.sendMessage(
       {
@@ -97,7 +104,7 @@ export const syncPasswordsWithExtension = (userId, passwords) => {
 
 // Request autofill for a specific password
 export const requestAutofill = (username, password, url) => {
-  console.log('Requesting autofill for:', { username, password, url });
+  console.log('Requesting autofill for:', { username, url });
   
   if (!isExtensionInstalled()) {
     console.log('Browser extension not installed');
@@ -148,5 +155,10 @@ export const setupExtensionHandler = () => {
     };
     
     console.log('Extension handler setup complete');
+    
+    // Expose the app URL to any parent window (if embedded in iframe)
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'APP_URL', url: getAppUrl() }, '*');
+    }
   }
 };

@@ -1,3 +1,4 @@
+
 // DOM Elements
 let loginButton;
 let loginContainer;
@@ -65,13 +66,14 @@ function openPasswordManager() {
   chrome.storage.local.get(['appBaseUrl'], function(result) {
     let appUrl = result.appBaseUrl || '';
     
-    // If we don't have a stored URL, try to construct one from the extension URL
     if (!appUrl) {
-      // Use the extension's origin as fallback
-      const extensionUrl = chrome.runtime.getURL('');
-      // Extract just the origin part (e.g., http://localhost:8080)
-      const urlParts = new URL(extensionUrl);
-      appUrl = `${urlParts.protocol}//${urlParts.hostname}${urlParts.port ? ':' + urlParts.port : ''}`;
+      // First try to get from localStorage as fallback
+      if (window.localStorage && window.localStorage.getItem('appBaseUrl')) {
+        appUrl = window.localStorage.getItem('appBaseUrl');
+      } else {
+        // Default to a common development URL
+        appUrl = 'http://localhost:5173';
+      }
     }
     
     console.log('Opening password manager at:', appUrl);
