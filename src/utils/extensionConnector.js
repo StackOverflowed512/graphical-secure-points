@@ -26,8 +26,16 @@ export const getExtensionUrl = () => {
 
 // Get the main application URL for redirecting from the extension
 export const getAppUrl = () => {
-  // Get the base URL of the current application
-  return window.location.origin;
+  // Get the base URL of the current application - ensure it's localhost:8080
+  const origin = window.location.origin;
+  console.log("Current app origin:", origin);
+  
+  // In development mode, ensure we're using port 8080
+  if (origin.includes('localhost') && !origin.includes(':8080')) {
+    return 'http://localhost:8080';
+  }
+  
+  return origin;
 };
 
 // Send authentication information to the extension

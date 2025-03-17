@@ -71,8 +71,8 @@ function openPasswordManager() {
       if (window.localStorage && window.localStorage.getItem('appBaseUrl')) {
         appUrl = window.localStorage.getItem('appBaseUrl');
       } else {
-        // Default to a common development URL
-        appUrl = 'http://localhost:5173';
+        // Default to localhost:8080 instead of 5173
+        appUrl = 'http://localhost:8080';
       }
     }
     

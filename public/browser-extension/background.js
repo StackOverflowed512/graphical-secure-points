@@ -10,6 +10,9 @@ let userCredentials = {
 // Store passwords
 let savedPasswords = [];
 
+// Default app URL - set to correct port
+const DEFAULT_APP_URL = 'http://localhost:8080';
+
 // Handle messages from the web app or content scripts
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background script received message:', request.action);
@@ -31,6 +34,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
           } catch (e) {
             console.error('Could not store in localStorage:', e);
           }
+        });
+      } else {
+        // Store default app URL if none provided
+        chrome.storage.local.set({ appBaseUrl: DEFAULT_APP_URL }, function() {
+          console.log('Default App URL stored:', DEFAULT_APP_URL);
         });
       }
       
@@ -104,6 +112,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 // Handle extension installation or update
 chrome.runtime.onInstalled.addListener(function(details) {
   console.log('Extension installed or updated:', details.reason);
+  
+  // Set default app URL on installation
+  chrome.storage.local.set({ appBaseUrl: DEFAULT_APP_URL }, function() {
+    console.log('Default App URL set on installation:', DEFAULT_APP_URL);
+  });
 });
 
 console.log('Password Manager Extension background script ready');
